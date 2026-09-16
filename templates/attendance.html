@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}الحضور - نظام الحضور{% endblock %}
+
+{% block content %}
+<div class="attendance-page">
+    <h1>📷 تسجيل الحضور</h1>
+
+    <div class="attendance-container">
+        <!-- طريقة 1: الكاميرا المباشرة -->
+        <div class="camera-section">
+            <h2>🎥 الكاميرا المباشرة</h2>
+            <div class="camera-feed">
+                <img src="/video_feed" alt="كاميرا مباشرة" id="videoFeed">
+                <div class="camera-overlay">
+                    <p>الكاميرا تعمل... قف أمام الكاميرا للتعرف</p>
+                </div>
+            </div>
+            <div class="camera-controls">
+                <button id="toggleCamera" class="btn-primary">إيقاف/تشغيل الكاميرا</button>
+                <button id="captureAttendance" class="btn-success">📸 التقاط وتسجيل</button>
+            </div>
+        </div>
+
+        <!-- طريقة 2: رفع صورة -->
+        <div class="upload-section">
+            <h2>📤 رفع صورة</h2>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="uploadImage" accept="image/*" hidden>
+                <div class="upload-placeholder">
+                    <span class="upload-icon">📤</span>
+                    <p>اسحب صورة هنا أو انقر للاختيار</p>
+                </div>
+            </div>
+            <div id="uploadPreview" class="upload-preview"></div>
+            <button id="recognizeBtn" class="btn-primary" style="display:none;">
+                🔍 التعرف وتسجيل الحضور
+            </button>
+        </div>
+    </div>
+
+    <!-- نتائج التعرف -->
+    <div id="recognitionResults" class="results-section" style="display:none;">
+        <h3>🔍 نتائج التعرف</h3>
+        <div id="resultsList"></div>
+    </div>
+
+    <!-- سجل آخر التعرفات -->
+    <div class="recent-recognitions">
+        <h3>📝 آخر التسجيلات</h3>
+        <div id="recentLogs"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let cameraActive = true;
+let uploadedImage = null;
+
+// التحكم في الكاميرا
+document.getElementById('toggleCamera').addEventListener('click', function() {
+    const feed = document.getElementById('videoFeed');
+    cameraActive = !cameraActive;
+    feed.style.display = cameraActive ? 'block' : 'none';
+    this.textContent = cameraActive ? 'إيقاف الكاميرا' : 'تشغيل الكاميرا';
+});
+
+// رفع الصورة
+const uploadArea = document.getElementById('uploadArea');
+const uploadInput = document.getElementById('uploadImage');
+
+uploadArea.addEventListener('click', () => uploadInput.click());
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+});
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length) handleImageUpload(files[0]);
+});
+
+uploadInput.addEventListener('change', (e) => {
+    if (e.target.files.length) handleImageUpload(e.target.files[0]);
+});
+
+function handleImageUpload(file) {
+    uploadedImage = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('uploadPreview').innerHTML = 
+            `<img src="${e.target.result}" alt="الصورة المرفوعة">`;
+        document.getElementById('recognizeBtn').style.display = 'block';
+        uploadArea.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+// التعرف على الصورة المرفوعة
+document.getElementById('recognizeBtn').addEventListener('click', async function() {
+    if (!uploadedImage) return;
+
+    const formData = new FormData();
+    formData.append('image', uploadedImage);
+
+    this.disabled = true;
+    this.textContent = '⏳ جاري التعرف...';
+
+    try {
+        const response = await fetch('/api/recognize', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        displayResults(data);
+        loadRecentLogs();
+    } catch (error) {
+        alert('❌ حدث خطأ في التعرف');
+    } finally {
+        this.disabled = false;
+        this.textContent = '🔍 التعرف وتسجيل الحضور';
+    }
+});
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('recognitionResults');
+    const listDiv = document.getElementById('resultsList');
+
+console.log(listDiv)
+    if (!data.success) {
+        listDiv.innerHTML = `<div class="result-error">❌ ${data.error}</div>`;
+    } else if (data.results.length === 0) {
+        listDiv.innerHTML = `<div class="result-error">❌ لم يتم العثور على وجوه</div>`;
+    } else {
+        listDiv.innerHTML = data.results.map(r => `
+            <div class="result-item ${r.name === 'Unknown' ? 'unknown' : 'known'}">
+                <span class="result-name">${r.name}</span>
+                <span class="result-confidence">الثقة: ${r.confidence}%</span>
+                ${r.person_id ? '<span class="result-status">✅ تم تسجيل الحضور</span>' : ''}
+            </div>
+        `).join('');
+    }
+
+    resultsDiv.style.display = 'block';
+}
+
+// تحميل آخر السجلات
+async function loadRecentLogs() {
+    try {
+        const response = await fetch('/api/attendance/logs');
+        const data = await response.json();
+
+        if (data.success && data.logs.length > 0) {
+            const recent = data.logs.slice(0, 5);
+            document.getElementById('recentLogs').innerHTML = recent.map(log => `
+                <div class="log-item">
+                    <span class="log-name">${log.name}</span>
+                    <span class="log-time">${log.date} ${log.time_in}</span>
+                    <span class="log-status">${log.time_out ? '🔴 خروج' : '🟢 دخول'}</span>
+                </div>
+            `).join('');
+        }
+    } catch (e) {}
+}
+
+loadRecentLogs();
+setInterval(loadRecentLogs, 5000);
+</script>
+{% endblock %}

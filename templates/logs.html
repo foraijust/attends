@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}سجلات الحضور - نظام الحضور{% endblock %}
+
+{% block content %}
+<div class="logs-page">
+    <h1>📋 سجلات الحضور</h1>
+
+    <div class="logs-filters">
+        <div class="filter-group">
+            <label>اختر التاريخ:</label>
+            <input type="date" id="dateFilter" value="{{ selected_date }}">
+            <button onclick="filterLogs()" class="btn-primary">🔍 عرض</button>
+        </div>
+        <button onclick="exportLogs()" class="btn-success">📥 تصدير CSV</button>
+    </div>
+
+    <div class="logs-table-container">
+        <table class="logs-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>الاسم</th>
+                    <th>التاريخ</th>
+                    <th>وقت الدخول</th>
+                    <th>وقت الخروج</th>
+                    <th>الحالة</th>
+                    <th>الطريقة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <div class="log-person">
+                            {% if log.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/faces/' + log.photo_path.split('/')[-1]) }}" class="log-avatar">
+                            {% else %}
+                            <div class="log-avatar-placeholder">{{ log.name[0] }}</div>
+                            {% endif %}
+                            <span>{{ log.name }}</span>
+                        </div>
+                    </td>
+                    <td>{{ log.date }}</td>
+                    <td>{{ log.time_in or '-' }}</td>
+                    <td>{{ log.time_out or '-' }}</td>
+                    <td>
+                        <span class="status-badge {{ log.status }}">
+                            {{ 'حاضر' if log.status == 'present' else 'غائب' }}
+                        </span>
+                    </td>
+                    <td>{{ log.method }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty-row">
+                        <div class="empty-state">
+                            <p>📭 لا توجد سجلات لهذا اليوم</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterLogs() {
+    const date = document.getElementById('dateFilter').value;
+    window.location.href = `/logs?date=${date}`;
+}
+
+function exportLogs() {
+    const date = document.getElementById('dateFilter').value;
+
+    fetch(`/api/attendance/logs?date=${date}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success || data.logs.length === 0) {
+                alert('لا توجد بيانات للتصدير');
+                return;
+            }
+
+            let csv = 'Name,Date,Time In,Time Out,Status,Method\n';
+            data.logs.forEach(log => {
+                csv += `${log.name},${log.date},${log.time_in || ''},${log.time_out || ''},${log.status},${log.method}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_${date}.csv`;
+            a.click();
+        });
+}
+</script>
+{% endblock %}

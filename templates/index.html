@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}الرئيسية - نظام الحضور{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>📊 لوحة التحكم</h1>
+
+    <div class="stats-grid">
+        <div class="stat-card present">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <h3>{{ stats.present }}</h3>
+                <p>الحاضرون اليوم</p>
+            </div>
+        </div>
+        <div class="stat-card absent">
+            <div class="stat-icon">❌</div>
+            <div class="stat-info">
+                <h3>{{ stats.absent }}</h3>
+                <p>الغائبون</p>
+            </div>
+        </div>
+        <div class="stat-card total">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <h3>{{ stats.total }}</h3>
+                <p>إجمالي المسجلين</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>👥 الأشخاص المسجلون</h2>
+        <div class="persons-grid">
+            {% for person in persons %}
+            <div class="person-card">
+                <div class="person-avatar">
+                    {% if person.photo_path %}
+                    <img src="{{ url_for('static', filename='uploads/faces/' + person.photo_path.split('/')[-1]) }}" alt="{{ person.name }}">
+                    {% else %}
+                    <div class="avatar-placeholder">{{ person.name[0] }}</div>
+                    {% endif %}
+                </div>
+                <div class="person-info">
+                    <h4>{{ person.name }}</h4>
+                    <p>{{ person.role }}</p>
+                    <small>{{ person.email or 'لا يوجد بريد' }}</small>
+                </div>
+                <button class="btn-delete" onclick="deletePerson({{ person.id }})">🗑️</button>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>لا يوجد أشخاص مسجلون</p>
+                <a href="/register" class="btn-primary">تسجيل شخص جديد</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

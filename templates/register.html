@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}تسجيل شخص - نظام الحضور{% endblock %}
+
+{% block content %}
+<div class="register-page">
+    <h1>➕ تسجيل شخص جديد</h1>
+
+    <div class="register-container">
+        <form id="registerForm" class="register-form">
+            <div class="form-group">
+                <label>الاسم الكامل *</label>
+                <input type="text" name="name" required placeholder="أدخل الاسم الكامل">
+            </div>
+
+            <div class="form-group">
+                <label>البريد الإلكتروني</label>
+                <input type="email" name="email" placeholder="example@email.com">
+            </div>
+
+            <div class="form-group">
+                <label>رقم الهاتف</label>
+                <input type="tel" name="phone" placeholder="05xxxxxxxx">
+            </div>
+
+            <div class="form-group">
+                <label>الدور/الوظيفة</label>
+                <select name="role">
+                    <option value="student">طالب</option>
+                    <option value="employee">موظف</option>
+                    <option value="teacher">مدرس</option>
+                    <option value="other">أخرى</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>صورة الوجه *</label>
+                <div class="file-upload">
+                    <input type="file" name="photo" id="photoInput" accept="image/*" required>
+                    <label for="photoInput" class="file-label">
+                        <span>📷 اختر صورة واضحة للوجه</span>
+                    </label>
+                </div>
+                <div id="photoPreview" class="photo-preview"></div>
+            </div>
+
+            <button type="submit" class="btn-primary btn-large">
+                <span class="btn-text">تسجيل الشخص</span>
+                <span class="btn-loading" style="display:none;">⏳ جاري التسجيل...</span>
+            </button>
+        </form>
+
+        <div class="register-tips">
+            <h3>💡 نصائح لصورة مثالية:</h3>
+            <ul>
+                <li>✅ استخدم إضاءة جيدة وموحدة</li>
+                <li>✅ انظر مباشرة للكاميرا</li>
+                <li>✅ تجنب الظلال على الوجه</li>
+                <li>✅ لا ترتدي نظارات شمسية</li>
+                <li>✅ خلفية بسيطة وواضحة</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="message" class="message" style="display:none;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('photoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('photoPreview').innerHTML = 
+                `<img src="${e.target.result}" alt="معاينة">`;
+        }
+        reader.readAsDataURL(file);
+    }
+});
+
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const btn = this.querySelector('button[type="submit"]');
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoading = btn.querySelector('.btn-loading');
+
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/persons', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        showMessage(data.success ? 'success' : 'error', 
+            data.success ? '✅ تم التسجيل بنجاح!' : `❌ ${data.error}`);
+
+        if (data.success) {
+            setTimeout(() => window.location.href = '/', 1500);
+        }
+    } catch (error) {
+        showMessage('error', '❌ حدث خطأ في الاتصال');
+    } finally {
+        btnText.style.display = 'inline';
+        btnLoading.style.display = 'none';
+        btn.disabled = false;
+    }
+});
+
+function showMessage(type, text) {
+    const msg = document.getElementById('message');
+    msg.className = `message ${type}`;
+    msg.textContent = text;
+    msg.style.display = 'block';
+    setTimeout(() => msg.style.display = 'none', 5000);
+}
+</script>
+{% endblock %}
